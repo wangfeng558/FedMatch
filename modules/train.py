@@ -514,5 +514,3 @@ class TrainModule:
         if self.args.scenario == 'labels-at-client':
             train_size += len(self.task['x_labeled'])
         return train_size
-
-    

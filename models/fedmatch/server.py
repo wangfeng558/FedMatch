@@ -179,5 +179,3 @@ class Server(ServerModule):
         self.s2c_sig.append(np.mean(sig_list, axis=0))
         self.s2c_psi.append(np.mean(psi_list, axis=0))
         self.s2c_hlp.append(np.mean(hlp_list, axis=0))
-    
-    

@@ -9,8 +9,8 @@ def set_config(args):
     """
 
     args.gpu_mem = 7 # Gbyte (adjust this as needed)
-    args.dataset_path = '/path/to/data/'  # for datasets
-    args.output_path =   '/path/to/outputs/' # for logs, weights, etc.
+    args.dataset_path = 'D:\\study\\cifar\\'  # for datasets
+    args.output_path =   'D:\\study\\output\\'
     
     args.archi = 'resnet9'
     args.dataset_id_to_name = {0: 'cifar_10'}

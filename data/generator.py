@@ -22,7 +22,8 @@ class DataGenerator:
         """
 
         self.args = args
-        self.base_dir = os.path.join(self.args.dataset_path, self.args.task) 
+        self.base_dir = os.path.join(self.args.dataset_path, self.args.task)
+        #和cifar中 shape类似
         self.shape = (32,32,3)
 
     def generate_data(self):
@@ -39,7 +40,7 @@ class DataGenerator:
         temp = {}
         if self.args.dataset_id_to_name[dataset_id] == 'cifar_10':
             temp['train'] = datasets.CIFAR10(self.args.dataset_path, train=True, download=True) 
-            temp['test'] = datasets.CIFAR10(self.args.dataset_path, train=False, download=True) 
+            temp['test'] = datasets.CIFAR10(self.args.dataset_path, train=False, download=True)
             x, y = [], []
             for dtype in ['train', 'test']:
                 for image, target in temp[dtype]:
@@ -58,9 +59,14 @@ class DataGenerator:
 
     def split_train_test_valid(self, x, y):
         self.num_examples = len(x)
-        self.num_train = self.num_examples - (self.args.num_test+self.args.num_valid) 
+        self.num_train = self.num_examples - (self.args.num_test+self.args.num_valid)
+        #test_num:2000 vaild = 2000
         self.num_test = self.args.num_test
+
         self.labels = np.unique(y)
+
+        print(f'num_train : {self.num_train}  num_examples: {self.num_examples}  num_test: {self.num_test}')
+
         # train set
         x_train = x[:self.num_train]
         y_train = y[:self.num_train]
@@ -70,6 +76,7 @@ class DataGenerator:
         y_test = tf.keras.utils.to_categorical(y_test, len(self.labels))
         l_test = np.unique(y_test)
         self.save_task({
+            #506
             'x': x_test,
             'y': y_test,
             'labels': l_test,
@@ -78,6 +85,7 @@ class DataGenerator:
         # valid set
         x_valid = x[self.num_train+self.num_test:]
         y_valid = y[self.num_train+self.num_test:]
+        #分成10类
         y_valid = tf.keras.utils.to_categorical(y_valid, len(self.labels))
         l_valid = np.unique(y_valid)
         self.save_task({
@@ -218,15 +226,3 @@ class DataGenerator:
         random.seed(self.args.seed)
         random.shuffle(idx)
         return np.array(x)[idx], np.array(y)[idx]
-
-
-
-
-
-
-
-
-
-
-
-        
