@@ -41,182 +41,181 @@ from tensorflow.python.ops import variable_scope
 from tensorflow.python.util import nest
 from tensorflow.python.util import tf_inspect
 
+
 class DecomposedDense(tf.keras.layers.Dense):
-  """ Custom dense layer that decomposes parameters into sigma and psi.
-  
-  Base code is referenced from official tensorflow code (https://github.com/tensorflow/tensorflow/)
+    """ Custom dense layer that decomposes parameters into sigma and psi.
 
-  Created by:
-      Wonyong Jeong (wyjeong@kaist.ac.kr)
-  """
+    Base code is referenced from official tensorflow code (https://github.com/tensorflow/tensorflow/)
 
-  def __init__(self,
-               units,
-               activation=None,
-               use_bias=False,
-               kernel_initializer='glorot_uniform',
-               bias_initializer='zeros',
-               kernel_regularizer=None,
-               bias_regularizer=None,
-               activity_regularizer=None,
-               kernel_constraint=None,
-               bias_constraint=None,
-               sigma=None,
-               psi=None,
-               bias=None,
-               l1_thres=None,
-               **kwargs):
-    if 'input_shape' not in kwargs and 'input_dim' in kwargs:
-      kwargs['input_shape'] = (kwargs.pop('input_dim'),)
+    Created by:
+        Wonyong Jeong (wyjeong@kaist.ac.kr)
+    """
 
-    super(DecomposedDense, self).__init__(
-               units=units,
-               activation=activation,
-               use_bias=use_bias,
-               kernel_initializer=kernel_initializer,
-               bias_initializer=bias_initializer,
-               kernel_regularizer=kernel_regularizer,
-               bias_regularizer=bias_regularizer,
-               activity_regularizer=activity_regularizer,
-               kernel_constraint=kernel_constraint,
-               bias_constraint=bias_constraint,
-               **kwargs)
+    def __init__(self,
+                 units,
+                 activation=None,
+                 use_bias=False,
+                 kernel_initializer='glorot_uniform',
+                 bias_initializer='zeros',
+                 kernel_regularizer=None,
+                 bias_regularizer=None,
+                 activity_regularizer=None,
+                 kernel_constraint=None,
+                 bias_constraint=None,
+                 sigma=None,
+                 psi=None,
+                 bias=None,
+                 l1_thres=None,
+                 **kwargs):
+        if 'input_shape' not in kwargs and 'input_dim' in kwargs:
+            kwargs['input_shape'] = (kwargs.pop('input_dim'),)
 
-    self.psi = psi
-    self.sigma = sigma
-    self.l1_thres = l1_thres
+        super(DecomposedDense, self).__init__(
+            units=units,
+            activation=activation,
+            use_bias=use_bias,
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            kernel_regularizer=kernel_regularizer,
+            bias_regularizer=bias_regularizer,
+            activity_regularizer=activity_regularizer,
+            kernel_constraint=kernel_constraint,
+            bias_constraint=bias_constraint,
+            **kwargs)
 
-  
-  def call(self, inputs):
-    #####################################################################
-    if tf.keras.backend.learning_phase():
-      sigma = self.sigma
-      psi = self.psi 
-    else: 
-      sigma = self.sigma
-      hard_threshold = tf.cast(tf.greater(tf.abs(self.psi), self.l1_thres), tf.float32)
-      psi = tf.multiply(self.psi, hard_threshold)
-    ######################### Decomposed Kernel #########################
-    self.my_theta = sigma + psi
-    #####################################################################
-    rank = len(inputs.shape)
-    if rank > 2:
-      # Broadcasting is required for the inputs.
-      outputs = standard_ops.tensordot(inputs, self.my_theta, [[rank - 1], [0]])
-      # Reshape the output back to the original ndim of the input.
-      if not context.executing_eagerly():
-        shape = inputs.shape.as_list()
-        output_shape = shape[:-1] + [self.units]
-        outputs.set_shape(output_shape)
-    else:
-      inputs = math_ops.cast(inputs, self._compute_dtype)
-      if K.is_sparse(inputs):
-        outputs = sparse_ops.sparse_tensor_dense_matmul(inputs, self.my_theta)
-      else:
-        outputs = gen_math_ops.mat_mul(inputs, self.my_theta)
-    if self.use_bias:
-      outputs = nn.bias_add(outputs, self.bias)
-    if self.activation is not None:
-      return self.activation(outputs)  # pylint: disable=not-callable
-    return outputs
+        self.psi = psi
+        self.sigma = sigma
+        self.l1_thres = l1_thres
+
+    def call(self, inputs):
+        #####################################################################
+        if tf.keras.backend.learning_phase():
+            sigma = self.sigma
+            psi = self.psi
+        else:
+            sigma = self.sigma
+            hard_threshold = tf.cast(tf.greater(tf.abs(self.psi), self.l1_thres), tf.float32)
+            psi = tf.multiply(self.psi, hard_threshold)
+        ######################### Decomposed Kernel #########################
+        self.my_theta = sigma + psi
+        #####################################################################
+        rank = len(inputs.shape)
+        if rank > 2:
+            # Broadcasting is required for the inputs.
+            outputs = standard_ops.tensordot(inputs, self.my_theta, [[rank - 1], [0]])
+            # Reshape the output back to the original ndim of the input.
+            if not context.executing_eagerly():
+                shape = inputs.shape.as_list()
+                output_shape = shape[:-1] + [self.units]
+                outputs.set_shape(output_shape)
+        else:
+            inputs = math_ops.cast(inputs, self._compute_dtype)
+            if K.is_sparse(inputs):
+                outputs = sparse_ops.sparse_tensor_dense_matmul(inputs, self.my_theta)
+            else:
+                outputs = gen_math_ops.mat_mul(inputs, self.my_theta)
+        if self.use_bias:
+            outputs = nn.bias_add(outputs, self.bias)
+        if self.activation is not None:
+            return self.activation(outputs)  # pylint: disable=not-callable
+        return outputs
 
 
 class DecomposedConv(tf.keras.layers.Conv2D):
-  """ Custom conv layer that decomposes parameters into sigma and psi.
-  
-  Base code is referenced from official tensorflow code (https://github.com/tensorflow/tensorflow/)
+    """ Custom conv layer that decomposes parameters into sigma and psi.
 
-  Created by:
-      Wonyong Jeong (wyjeong@kaist.ac.kr)
-  """
-  def __init__(self, 
-               filters,
-               kernel_size,
-               rank=2,
-               strides=(1, 1),
-               padding='valid',
-               data_format=None,
-               dilation_rate=(1, 1),
-               activation=None,
-               use_bias=False,
-               kernel_initializer='glorot_uniform',
-               bias_initializer='zeros',
-               kernel_regularizer=None,
-               bias_regularizer=None,
-               activity_regularizer=None,
-               kernel_constraint=None,
-               bias_constraint=None,
-               trainable=True,
-               name=None,
-               sigma=None,
-               psi=None,
-               bias=None,
-               l1_thres=None,
-               **kwargs):
-    
-    super(DecomposedConv, self).__init__(
-               filters=filters,
-               kernel_size=kernel_size,
-               strides=strides,
-               padding=padding,
-               data_format=data_format,
-               dilation_rate=dilation_rate,
-               activation=activation,
-               use_bias=use_bias,
-               kernel_initializer=kernel_initializer,
-               bias_initializer=bias_initializer,
-               kernel_regularizer=kernel_regularizer,
-               bias_regularizer=bias_regularizer,
-               activity_regularizer=activity_regularizer,
-               kernel_constraint=kernel_constraint,
-               bias_constraint=bias_constraint,
-               trainable=trainable,
-               name=name, **kwargs)
-    
-    self.psi = psi
-    self.sigma = sigma
-    self.l1_thres = l1_thres
+    Base code is referenced from official tensorflow code (https://github.com/tensorflow/tensorflow/)
 
-  
-  def call(self, inputs):
-    if tf.keras.backend.learning_phase():
-      sigma = self.sigma
-      psi = self.psi 
-    else: 
-      sigma = self.sigma
-      hard_threshold = tf.cast(tf.greater(tf.abs(self.psi), self.l1_thres), tf.float32)
-      psi = tf.multiply(self.psi, hard_threshold)
-    ######################### Decomposed Kernel #########################
-    self.my_theta = sigma + psi
-    #####################################################################
+    Created by:
+        Wonyong Jeong (wyjeong@kaist.ac.kr)
+    """
 
-    # if self._recreate_conv_op(inputs):
-    self._convolution_op = nn_ops.Convolution(
-        inputs.get_shape(),
-        filter_shape=self.my_theta.shape,
-        dilation_rate=self.dilation_rate,
-        strides=self.strides,
-        padding=self._padding_op,
-        data_format=self._conv_op_data_format)
+    def __init__(self,
+                 filters,
+                 kernel_size,
+                 rank=2,
+                 strides=(1, 1),
+                 padding='valid',
+                 data_format=None,
+                 dilation_rate=(1, 1),
+                 activation=None,
+                 use_bias=False,
+                 kernel_initializer='glorot_uniform',
+                 bias_initializer='zeros',
+                 kernel_regularizer=None,
+                 bias_regularizer=None,
+                 activity_regularizer=None,
+                 kernel_constraint=None,
+                 bias_constraint=None,
+                 trainable=True,
+                 name=None,
+                 sigma=None,
+                 psi=None,
+                 bias=None,
+                 l1_thres=None,
+                 **kwargs):
 
-    # Apply causal padding to inputs for Conv1D.
-    if self.padding == 'causal' and self.__class__.__name__ == 'Conv1D':
-      inputs = array_ops.pad(inputs, self._compute_causal_padding())
-   
-    outputs = self._convolution_op(inputs, self.my_theta)
+        super(DecomposedConv, self).__init__(
+            filters=filters,
+            kernel_size=kernel_size,
+            strides=strides,
+            padding=padding,
+            data_format=data_format,
+            dilation_rate=dilation_rate,
+            activation=activation,
+            use_bias=use_bias,
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            kernel_regularizer=kernel_regularizer,
+            bias_regularizer=bias_regularizer,
+            activity_regularizer=activity_regularizer,
+            kernel_constraint=kernel_constraint,
+            bias_constraint=bias_constraint,
+            trainable=trainable,
+            name=name, **kwargs)
 
-    if self.use_bias:
-      if self.data_format == 'channels_first':
-        if self.rank == 1:
-          # nn.bias_add does not accept a 1D input tensor.
-          bias = array_ops.reshape(self.bias, (1, self.filters, 1))
-          outputs += bias
+        self.psi = psi
+        self.sigma = sigma
+        self.l1_thres = l1_thres
+
+    def call(self, inputs):
+        if tf.keras.backend.learning_phase():
+            sigma = self.sigma
+            psi = self.psi
         else:
-          outputs = nn.bias_add(outputs, self.bias, data_format='NCHW')
-      else:
-        outputs = nn.bias_add(outputs, self.bias, data_format='NHWC')
+            sigma = self.sigma
+            hard_threshold = tf.cast(tf.greater(tf.abs(self.psi), self.l1_thres), tf.float32)
+            psi = tf.multiply(self.psi, hard_threshold)
+        ######################### Decomposed Kernel #########################
+        self.my_theta = sigma + psi
+        #####################################################################
 
-    if self.activation is not None:
-      return self.activation(outputs)
-    return outputs
+        # if self._recreate_conv_op(inputs):
+        self._convolution_op = nn_ops.Convolution(
+            inputs.get_shape(),
+            filter_shape=self.my_theta.shape,
+            dilation_rate=self.dilation_rate,
+            strides=self.strides,
+            padding=self._padding_op,
+            data_format=self._conv_op_data_format)
 
+        # Apply causal padding to inputs for Conv1D.
+        if self.padding == 'causal' and self.__class__.__name__ == 'Conv1D':
+            inputs = array_ops.pad(inputs, self._compute_causal_padding())
+
+        outputs = self._convolution_op(inputs, self.my_theta)
+
+        if self.use_bias:
+            if self.data_format == 'channels_first':
+                if self.rank == 1:
+                    # nn.bias_add does not accept a 1D input tensor.
+                    bias = array_ops.reshape(self.bias, (1, self.filters, 1))
+                    outputs += bias
+                else:
+                    outputs = nn.bias_add(outputs, self.bias, data_format='NCHW')
+            else:
+                outputs = nn.bias_add(outputs, self.bias, data_format='NHWC')
+
+        if self.activation is not None:
+            return self.activation(outputs)
+        return outputs

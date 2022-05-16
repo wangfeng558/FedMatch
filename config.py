@@ -36,6 +36,7 @@ def set_config(args):
         args.num_epochs_server = 1
         args.num_epochs_server_pretrain = 1
         args.lr_factor = 3
+        #patience：当patience个epoch过去而模型性能不提升时，学习率减少的动作会被触发
         args.lr_patience = 20
         args.lr_min = 1e-20
 
@@ -46,6 +47,7 @@ def set_config(args):
         args.num_clients = 100
         args.num_rounds = 200 
     
+
     # datasets
     if 'c10' in args.task:
         args.dataset_id = 0

@@ -25,7 +25,7 @@ class DataLoader:
         self.args = args
         self.shape = (32,32,3)
         self.rand_augment = RandAugment()
-        self.base_dir = os.path.join(self.args.dataset_path, self.args.task) 
+        self.base_dir = self.args.dataset_path
         self.stats = [{
                 'mean': [x/255 for x in [125.3,123.0,113.9]],
                 'std': [x/255 for x in [63.0,62.1,66.7]]
@@ -45,8 +45,8 @@ class DataLoader:
         return task['x'], task['y'], task['name']
 
     def get_s_server(self):
-        task = np_load(self.base_dir, f's_{self.args.dataset_id_to_name[self.args.dataset_id]}.npy')
-        return task['x'], task['y'], task['name']
+        #task = np_load(self.base_dir, f's_data_party_server.csv')
+        return np_load(self.base_dir, f's_data_party_server.csv')
 
     def get_test(self):
         task = np_load(self.base_dir, f'test_{self.args.dataset_id_to_name[self.args.dataset_id]}.npy')
@@ -57,6 +57,7 @@ class DataLoader:
         return task['x'], task['y']
 
     def scale(self, x):
+        #对于CIFAR10数据集，如果采用float64来表示，需要60000323238/1024**3=1.4G，光把数据集调入内存就需要1.4G；如果采用float32，只需要0.7G
         x = x.astype(np.float32)/255
         return x
 
