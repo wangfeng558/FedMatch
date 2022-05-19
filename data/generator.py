@@ -24,6 +24,7 @@ class DataGenerator:
 
     def __init__(self, args):
 
+        self.labels = 0
         self.data: Any = []
         self.targets = []
         self.args = args
@@ -63,13 +64,14 @@ class DataGenerator:
             raise RuntimeError('Dataset not found or corrupted.' +
                                ' You can use download=True to download it')
 
-        for file_name in self.train_list:
+        for i, file_name in self.train_list:
             file_path = os.path.join(self.args.dataset_path, file_name)
             x, y = [], []
             x = pd.read_csv(file_path)
             y = x['Label']
             del x['Label']
-
+            if i == 0:
+                self.labels = np.unique(y)
             y_train = tf.keras.utils.to_categorical(y, len(self.labels))
             l_train = np.unique(y_train)
             self.save_task({
@@ -77,7 +79,7 @@ class DataGenerator:
                 'x': x,
                 'y': y_train,
                 'labels': l_train,
-                'name': f'u_{self.args.dataset_id_to_name[self.args.dataset_id]}'
+                'name': f'u_{self.args.dataset_id_to_name[self.args.dataset_id]}_{i}'
             })
 
         for file_name in self.test_list:

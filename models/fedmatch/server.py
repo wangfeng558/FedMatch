@@ -8,6 +8,7 @@ from models.fedmatch.client import Client
 from modules.federated import ServerModule
 import math
 
+
 class Server(ServerModule):
 
     def __init__(self, args):
@@ -74,18 +75,16 @@ class Server(ServerModule):
         while self.queue.qsize() < int(round(self.args.num_clients * self.args.frac_clients)):
             time.sleep(1)
 
-
         for x in range(self.queue.qsize()):
             update = self.queue.get()
             self.connected_ids = self.connected_ids.append(update[2])
 
-            tmp = {}
-            tmp['last_round'] = update[3]
+            tmp = {'last_round': update[3]}
             client = self.clients_round_weight[update[2]]
             if client == 100:
                 tmp['weight'] = math.pow(math.exp() / 2, self.curr_round + 1)
             else:
-                tmp['weight'] = client.get('weight') + math.pow(math.exp()/2, self.curr_round+1)
+                tmp['weight'] = client.get('weight') + math.pow(math.exp() / 2, self.curr_round + 1)
 
             # 需要加上参数
             self.clients_round_weight.pop(update[2])
@@ -100,7 +99,7 @@ class Server(ServerModule):
                 self.nums = self.nums + self.mix_nums[update[2]]
 
         self.weights = 0
-        for i in range(self.args.num_clients) :
+        for i in range(self.args.num_clients):
             weight = 0
             if self.clients_round_weight[i] != 100:
                 weight = self.clients_round_weight[i].get('weight')
