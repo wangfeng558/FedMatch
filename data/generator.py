@@ -64,8 +64,10 @@ class DataGenerator:
             raise RuntimeError('Dataset not found or corrupted.' +
                                ' You can use download=True to download it')
 
-        for i, file_name in self.train_list:
-            file_path = os.path.join(self.args.dataset_path, file_name)
+
+
+        for i in range(0, len(self.train_list)):
+            file_path = os.path.join(self.args.dataset_path, self.train_list[i])
             x, y = [], []
             x = pd.read_csv(file_path)
             y = x['Label']
