@@ -46,7 +46,6 @@ class DataGenerator:
 
         self.server_list = ['server.csv']
 
-
     def generate_data(self):
         print('generating {} ...'.format(self.args.task))
         start_time = time.time()
@@ -56,15 +55,13 @@ class DataGenerator:
 
         print(f'{self.args.task} done ({time.time() - start_time}s)')
 
-    #生成npy数据
+    # 生成npy数据
 
     def TON_LOT(self, train: bool = True):
 
         if not self._check_integrity():
             raise RuntimeError('Dataset not found or corrupted.' +
                                ' You can use download=True to download it')
-
-
 
         for i in range(0, len(self.train_list)):
             file_path = os.path.join(self.args.dataset_path, self.train_list[i])
