@@ -8,18 +8,50 @@ from misc.utils import *
 
 
 class TrainModule:
-    """ Common module for model training 
-
-    This module manages training procedures for both server and client
-    Saves and loads all states whenever client is switched.
-
-    Created by:
-        Wonyong Jeong (wyjeong@kaist.ac.kr)
-    """
 
     def __init__(self, args, logger):
         self.args = args
         self.logger = logger
+
+        self.basic_dataset = [
+            [0.05, 0.58, 0.17, 0.17, 0.03, 0, 0, 0, 0],  # type 0
+            [0.99, 0.1, 0, 0, 0, 0, 0, 0, 0],  # type 1
+            [0.16, 0.80, 0.02, 0.001, 0.01, 0.001, 0.001, 0.001, 0.001],  # type 2
+            [0.999, 0.001, 0, 0, 0, 0, 0, 0, 0],  # type 3
+            [0.006, 0.725, 0.157, 0.089, 0.021, 0, 0, 0, 0],  # type 4
+            [0.031, 0.622, 0.133, 0.203, 0.008, 0, 0, 0, 0],  # type 5
+            [0.016, 0.939, 0.044, 0, 0, 0, 0, 0, 0],  # type 6
+            [1, 0, 0, 0, 0, 0, 0, 0, 0],  # type 7
+            [0.048, 0.952, 0, 0, 0, 0, 0, 0, 0],  # type 8
+            [0.046, 0.954, 0, 0, 0, 0, 0, 0, 0],  # type 9
+        ]
+        self.basic_entropy = [0.52041, 0, 0.28669, 0, 0.38890, 0.47291, 0.11976, 0.0002, 0.08794, 0.08511]
+        self.basic_nums = [811504, 763518, 740117, 519806, 424531, 330956, 223092, 217737, 186891, 185932]
+
+        self.balance_dataset = [
+            [0.230, 0.230, 0.230, 0.230, 0.069, 0.0001, 0.0001, 0.0001, 0.0001],  # type 0
+            [0.230, 0.230, 0.230, 0.230, 0.069, 0.0001, 0.0001, 0.0001, 0.0001],  # type 1
+            [0.230, 0.230, 0.230, 0.230, 0.069, 0.0001, 0.0001, 0.0001, 0.0001],  # type 2
+            [0.230, 0.230, 0.230, 0.230, 0.069, 0.0001, 0.0001, 0.0001, 0.0001],  # type 3
+            [0.230, 0.230, 0.230, 0.230, 0.069, 0.0001, 0.0001, 0.0001, 0.0001],  # type 4
+            [0.230, 0.230, 0.230, 0.230, 0.069, 0.0001, 0.0001, 0.0001, 0.0001],  # type 5
+            [0.230, 0.230, 0.230, 0.230, 0.069, 0.0001, 0.0001, 0.0001, 0.0001],  # type 6
+            [0.230, 0.230, 0.230, 0.230, 0.069, 0.0001, 0.0001, 0.0001, 0.0001],  # type 7
+            [0.230, 0.230, 0.230, 0.230, 0.069, 0.0001, 0.0001, 0.0001, 0.0001],  # type 8
+            [0.230, 0.230, 0.230, 0.230, 0.069, 0.0001, 0.0001, 0.0001, 0.0001],  # type 9
+        ]
+        self.balance_entropy = [0.7611, 0.7611, 0.7611, 0.7611, 0.7611, 0.7611, 0.7611, 0.7611, 0.7611, 0.7611]
+        self.balance_nums = [43549, 43549, 43549, 43549, 43549, 43549, 43549, 43549, 43549, 43549]
+
+        self.mix_dataset = [
+            [0.206, 0.242, 0.242, 0.242, 0.065, 0, 0, 0, 0],  # type 0
+            [0.234, 0.234, 0.234, 0.026, 0.256, 0.0001, 0.0001, 0.0001, 0.0001],  # type 1
+            [0.038, 0.279, 0.279, 0.279, 0.125, 0, 0, 0, 0],  # type 2
+            [0.143, 0.272, 0.272, 0.272, 0.040, 0, 0, 0, 0],  # type 3
+        ]
+        self.mix_entropy = [0.69858, 0.70266, 0.66218, 0.66888]
+        self.mix_nums = [205946, 42679, 71748, 73446]
+
         self.metrics = {
             'train_lss': tf_metrics.Mean(name='train_lss'),
             'train_acc': tf_metrics.CategoricalAccuracy(name='train_acc'),
@@ -138,21 +170,15 @@ class TrainModule:
             self.state['curr_epoch'] = epoch
             self.num_confident = 0
             for i in range(num_steps):
-                if self.args.model in ['fedmatch']:
-                    x_unlabeled = self.task['x_unlabeled'][i * bsize_u:(i + 1) * bsize_u]
+                x_unlabeled = self.task['x_unlabeled'][i * bsize_u:(i + 1) * bsize_u]
 
-                    # GradientTape ： https://cloud.tencent.com/developer/article/1610495  梯度求解
-                    with tf.GradientTape() as tape:
-                        ######################################
-                        #       unsupervised learning
-                        ######################################
-                        _, loss_u, num_conf = self.params['loss_fn_u'](x_unlabeled)
+                # GradientTape ： https://cloud.tencent.com/developer/article/1610495  梯度求解
+                with tf.GradientTape() as tape:
+                    _, loss_u, num_conf = self.params['loss_fn_u'](x_unlabeled)
 
-                    # gradient ： https://blog.csdn.net/QKK612501/article/details/115335437
-                    gradients = tape.gradient(loss_u, self.params['trainables_u'])
-                    # apply_gra : https://zhuanlan.zhihu.com/p/343628982
-                    self.optimizer.apply_gradients(zip(gradients, self.params['trainables_u']))
-                    self.num_confident += num_conf
+                gradients = tape.gradient(loss_u, self.params['trainables_u'])
+                self.optimizer.apply_gradients(zip(gradients, self.params['trainables_u']))
+                self.num_confident += num_conf
 
             vlss, vacc = self.validate()
             tlss, tacc = self.evaluate()
@@ -251,7 +277,19 @@ class TrainModule:
         print('no correct fedmethod was given: {}'.format(self.args.fed_method))
         os._exit(0)
 
-    def uniform_average(self, updates):
+    def polynomial(self, current_round, last_round):
+        return math.pow((current_round - last_round + 1), - self.args.a)
+
+    def hinge(self, current_round, last_round):
+        if current_round - last_round < self.args.lack_version:
+            return 1
+        else:
+            return 1 / (self.args.a * (current_round - last_round - self.args.lack_version) + 1)
+
+    def four(self, current_round, last_round):
+        return math.pow(math.exp() / 2, last_round - current_round)
+
+    def uniform_average(self, updates, sigma, nums, curr_round):
         client_weights = [u[0] for u in updates]
         client_sizes = [u[1] for u in updates]
         # zeros_like :  输出为形状和x一致的矩阵，其元素全部为0
@@ -260,7 +298,47 @@ class TrainModule:
         for c in range(len(client_weights)):  # by client
             _client_weights = client_weights[c]
             for i in range(len(new_weights)):  # by layer
-                new_weights[i] += _client_weights[i] * float(1 / len(updates))
+                if self.args.scen == 0:
+                    if self.args.oldfun == 0:
+                        new_weights[i] += _client_weights[i] * float(1 / len(updates)) * (
+                                self.basic_nums[updates[c][2]] / nums)
+                    elif self.args.oldfun == 1:
+                        new_weights[i] += _client_weights[i] * float(1 / len(updates)) * (
+                                self.basic_nums[updates[c][2]] / nums) * self.polynomial(curr_round, updates[c][3])
+                    elif self.args.oldfun == 2:
+                        new_weights[i] += _client_weights[i] * float(1 / len(updates)) * (
+                                self.basic_nums[updates[c][2]] / nums) * self.hinge(curr_round, updates[c][3])
+                    else:
+                        new_weights[i] += _client_weights[i] * float(1 / len(updates)) * (
+                                self.basic_nums[updates[c][2]] / nums) * self.four(curr_round, updates[c][3])
+
+                elif self.args.scen == 1:
+                    if self.args.oldfun == 0:
+                        new_weights[i] += _client_weights[i] * float(1 / len(updates)) * (
+                                self.balance_nums[updates[c][2]] / nums)
+                    elif self.args.oldfun == 1:
+                        new_weights[i] += _client_weights[i] * float(1 / len(updates)) * (
+                                self.balance_nums[updates[c][2]] / nums) * self.polynomial(curr_round, updates[c][3])
+                    elif self.args.oldfun == 2:
+                        new_weights[i] += _client_weights[i] * float(1 / len(updates)) * (
+                                self.balance_nums[updates[c][2]] / nums) * self.hinge(curr_round, updates[c][3])
+                    else:
+                        new_weights[i] += _client_weights[i] * float(1 / len(updates)) * (
+                                self.balance_nums[updates[c][2]] / nums) * self.four(curr_round, updates[c][3])
+
+                else:
+                    if self.args.oldfun == 0:
+                        new_weights[i] += _client_weights[i] * float(1 / len(updates)) * (
+                                self.mix_nums[updates[c][2]] / nums)
+                    elif self.args.oldfun == 1:
+                        new_weights[i] += _client_weights[i] * float(1 / len(updates)) * (
+                                self.mix_nums[updates[c][2]] / nums) * self.polynomial(curr_round, updates[c][3])
+                    elif self.args.oldfun == 2:
+                        new_weights[i] += _client_weights[i] * float(1 / len(updates)) * (
+                                self.mix_nums[updates[c][2]] / nums) * self.hinge(curr_round, updates[c][3])
+                    else:
+                        new_weights[i] += _client_weights[i] * float(1 / len(updates)) * (
+                                self.mix_nums[updates[c][2]] / nums) * self.four(curr_round, updates[c][3])
         return new_weights
 
     def cal_s2c(self, curr_round, sig_server, psi_server, helpers):

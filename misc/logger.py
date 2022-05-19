@@ -1,6 +1,3 @@
-__author__ = "Wonyong Jeong"
-__email__ = "wyjeong@kaist.ac.kr"
-
 from datetime import datetime
 
 from misc.utils import *

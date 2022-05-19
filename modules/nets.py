@@ -11,17 +11,10 @@ from modules.layers import *
 
 
 class NetModule:
-    """ This module manages model networks and parameters
-
-    Saves and loads all states whenever client is switched.
-
-    Created by:
-        Wonyong Jeong (wyjeong@kaist.ac.kr)
-    """
 
     def __init__(self, args):
         self.args = args
-        self.input_shape = (32, 32, 3)
+        self.input_shape = (77, 1)
         self.shapes = [
             (3, 3, 3, 64),
             (3, 3, 64, 128),

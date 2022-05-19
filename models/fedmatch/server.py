@@ -1,27 +1,17 @@
 import threading
 import time
-
 import tensorflow as tf
-
 from scipy import spatial
 from scipy.stats import truncnorm
-
 from misc.utils import *
 from models.fedmatch.client import Client
 from modules.federated import ServerModule
-
+import math
 
 class Server(ServerModule):
 
     def __init__(self, args):
-        """ FedMatch Server
 
-        Performs fedmatch server algorithms
-        Embeds local models and searches nearest if requird
-
-        Created by:
-            Wonyong Jeong (wyjeong@kaist.ac.kr)
-        """
         super(Server, self).__init__(args, Client)
         self.c2s_sum = []
         self.c2s_sig = []
@@ -35,6 +25,8 @@ class Server(ServerModule):
         self.cid_to_vectors = {}
         self.cid_to_weights = {}
         self.curr_round = -1
+        self.nums = 0
+        self.weights = 0
         mu, std, lower, upper = 125, 125, 0, 255
         # truncnorm : https://vimsky.com/examples/usage/python-scipy.stats.truncnorm.html
         # rvs：产生服从指定分布的随机数
@@ -55,36 +47,70 @@ class Server(ServerModule):
     def _train_clients(self):
         sigma = [s.numpy() for s in self.sig]
         psi = [p.numpy() for p in self.psi]
+
         while len(self.connected_ids) > 0:
             for gpu_id, gpu_client in self.clients.items():
                 cid = self.connected_ids.pop(0)
                 # helpers = self.get_similar_models(cid)
                 with tf.device('/device:GPU:{}'.format(gpu_id)):
                     # each client will be trained in parallel
-                    # thrd = threading.Thread(target=self.invoke_client, args=(gpu_client, cid, self.curr_round, sigma, psi, helpers))
+                    if self.curr_round == 0:
+                        slope = 1
+                    else:
+                        slope = self.args.num_clients * self.clients_round_weight[cid].get('weight') / self.weights
                     thrd = threading.Thread(target=self.invoke_client,
-                                            args=(gpu_client, cid, self.curr_round, sigma, psi,))
-                    self.threads.append(thrd)
+                                            args=(gpu_client, cid, self.curr_round, sigma, psi, slope))
+                    # self.threads.append(thrd)
                     thrd.start()
                 if len(self.connected_ids) == 0:
                     break
-            # wait all threads per gpu
-            # for thrd in self.threads:
-            #     thrd.join()
-            # self.threads = []
+
+        # 训练服务器 有监督模型
+        thrd_server = threading.Thread(target=self.train_global_model(), args=())
+        thrd_server.start()
+        thrd_server.join()
+
         # 等待 大部分线程运行完毕
-        while (self.queue.qsize() < int(round(self.args.num_clients * self.args.frac_clients))):
+        while self.queue.qsize() < int(round(self.args.num_clients * self.args.frac_clients)):
             time.sleep(1)
 
-        update = self.queue.get()
-        self.connected_ids = self.connected_ids.append(update['client_id'])
-        self.updates.append(update)
 
-        # self.client_similarity(self.updates)
-        self.set_weights(self.aggregate(self.updates))
+        for x in range(self.queue.qsize()):
+            update = self.queue.get()
+            self.connected_ids = self.connected_ids.append(update[2])
+
+            tmp = {}
+            tmp['last_round'] = update[3]
+            client = self.clients_round_weight[update[2]]
+            if client == 100:
+                tmp['weight'] = math.pow(math.exp() / 2, self.curr_round + 1)
+            else:
+                tmp['weight'] = client.get('weight') + math.pow(math.exp()/2, self.curr_round+1)
+
+            # 需要加上参数
+            self.clients_round_weight.pop(update[2])
+            self.clients_round_weight.insert(update[2], tmp)
+
+            self.updates.append(update)
+            if self.args.scen == 0:
+                self.nums = self.nums + self.basic_nums[update[2]]
+            elif self.args.scen == 1:
+                self.nums = self.nums + self.balance_nums[update[2]]
+            else:
+                self.nums = self.nums + self.mix_nums[update[2]]
+
+        self.weights = 0
+        for i in range(self.args.num_clients) :
+            weight = 0
+            if self.clients_round_weight[i] != 100:
+                weight = self.clients_round_weight[i].get('weight')
+                self.weights += weight
+        self.set_weights(self.aggregate(self.updates, self.trainables, self.nums, self.curr_round))
+
+        self.nums = 0
+
         self.train.evaluate_after_aggr()
-        # self.avg_c2s()
-        # self.avg_s2c()
+
         self.logger.save_current_state('server', {
             'c2s': {
                 'sum': self.c2s_sum,
@@ -101,8 +127,8 @@ class Server(ServerModule):
         })
         self.updates = []
 
-    def invoke_client(self, client, cid, curr_round, sigma, psi, que):
-        update = client.train_one_round(cid, curr_round, sigma=sigma, psi=psi, )
+    def invoke_client(self, client, cid, curr_round, sigma, psi, slope):
+        update = client.train_one_round(cid, curr_round, sigma=sigma, psi=psi, slope=slope)
         self.queue.put(update)
 
     def client_similarity(self, updates):
@@ -120,7 +146,7 @@ class Server(ServerModule):
         self.rid_to_cid = {}
         for cwgts, csize, cid, _, _ in updates:
             self.cid_to_weights[cid] = cwgts
-            rwgts = self.restored_clients[rid].get_weights()
+            rwgts = self.restored_clients[rid].get_client_train_weights()
             if self.args.scenario == 'labels-at-client':
                 half = len(cwgts) // 2
                 for lid in range(len(rwgts)):

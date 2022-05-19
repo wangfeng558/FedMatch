@@ -13,22 +13,14 @@ from config import *
 class DataLoader:
 
     def __init__(self, args):
-        """ Data Loader
-
-        Loads data corresponding to the current client
-        Transforms and augments the given batch images if needed.
-
-        Created by:
-            Wonyong Jeong (wyjeong@kaist.ac.kr)
-        """
 
         self.args = args
-        self.shape = (32,32,3)
+        self.shape = (77, 1)
         self.rand_augment = RandAugment()
         self.base_dir = self.args.dataset_path
         self.stats = [{
-                'mean': [x/255 for x in [125.3,123.0,113.9]],
-                'std': [x/255 for x in [63.0,62.1,66.7]]
+                'mean': [x/255 for x in [125.3, 123.0, 113.9]],
+                'std': [x/255 for x in [63.0, 62.1, 66.7]]
             }, {
                 'mean': [0.2190, 0.2190, 0.2190],
                 'std': [0.3318, 0.3318, 0.3318]
@@ -46,7 +38,7 @@ class DataLoader:
 
     def get_s_server(self):
         #task = np_load(self.base_dir, f's_data_party_server.csv')
-        return np_load(self.base_dir, f's_data_party_server.csv')
+        return np_load(self.base_dir, f's_{self.args.dataset_id_to_name[self.args.dataset_id]}.npy')
 
     def get_test(self):
         task = np_load(self.base_dir, f'test_{self.args.dataset_id_to_name[self.args.dataset_id]}.npy')

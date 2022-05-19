@@ -43,13 +43,6 @@ from tensorflow.python.util import tf_inspect
 
 
 class DecomposedDense(tf.keras.layers.Dense):
-    """ Custom dense layer that decomposes parameters into sigma and psi.
-
-    Base code is referenced from official tensorflow code (https://github.com/tensorflow/tensorflow/)
-
-    Created by:
-        Wonyong Jeong (wyjeong@kaist.ac.kr)
-    """
 
     def __init__(self,
                  units,

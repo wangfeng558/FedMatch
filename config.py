@@ -1,19 +1,18 @@
 def set_config(args):
-    """ Model, Data, and Training Coniguration
 
-    Specifies detailed configurations, such as batch-size, number of epcohs and rounds, 
-    hyper-parameters, etc., can be set in this file.
-
-    Created by: 
-        Wonyong Jeong (wyjeong@kaist.ac.kr)
-    """
-
-    args.gpu_mem = 7 # Gbyte (adjust this as needed)
+    args.gpu_mem = 11 # Gbyte (adjust this as needed)
     args.dataset_path = 'D:\\study\\cifar\\'  # for datasets
-    args.output_path =   'D:\\study\\output\\'
+    args.output_path = 'D:\\study\\output\\'
     
     args.archi = 'resnet9'
     args.dataset_id_to_name = {0: 'cifar_10'}
+    args.a = 1
+    args.lack_version = 5
+    # 0 代表 basic   1 代表 balance 2代表mixed
+    args.scen = 0
+
+    # 表示四个陈旧函数
+    args.oldfun = 0
     
     # scenarios
     if 'lc' in args.task:
@@ -51,7 +50,7 @@ def set_config(args):
     # datasets
     if 'c10' in args.task:
         args.dataset_id = 0
-        args.num_classes = 10
+        args.num_classes = 9
         args.num_test = 2000
         args.num_valid = 2000
         args.batch_size_test = 100
@@ -84,8 +83,5 @@ def set_config(args):
             args.lambda_l2 = 10
             args.lambda_l1 = 1e-5
             args.l1_thres = 1e-5
-            args.delta_thres = 1e-5 
-
+            args.delta_thres = 1e-5
     return args
-
-

@@ -24,14 +24,7 @@ class ServerModule:
     queue: Queue[Any]
 
     def __init__(self, args, Client):
-        """ Superclass for Server Module
 
-        This module contains common server functions,
-        such as laoding data, training global model, handling clients, etc.
-
-        Created by:
-            Wonyong Jeong (wyjeong@kaist.ac.kr)
-        """
         self.args = args
         self.client = Client
         self.clients = {}
@@ -47,7 +40,46 @@ class ServerModule:
         self.cross_entropy = tf.keras.losses.CategoricalCrossentropy()
         atexit.register(self.atexit)
         self.queue = q.Queue()
-        self.toActiveQueue = q.Queue()
+        self.clients_round_weight = [100 for v in range(10)]
+        self.basic_dataset = [
+            [0.05, 0.58, 0.17, 0.17, 0.03, 0, 0, 0, 0],  # type 0
+            [0.99, 0.1, 0, 0, 0, 0, 0, 0, 0],  # type 1
+            [0.16, 0.80, 0.02, 0.001, 0.01, 0.001, 0.001, 0.001, 0.001],  # type 2
+            [0.999, 0.001, 0, 0, 0, 0, 0, 0, 0],  # type 3
+            [0.006, 0.725, 0.157, 0.089, 0.021, 0, 0, 0, 0],  # type 4
+            [0.031, 0.622, 0.133, 0.203, 0.008, 0, 0, 0, 0],  # type 5
+            [0.016, 0.939, 0.044, 0, 0, 0, 0, 0, 0],  # type 6
+            [1, 0, 0, 0, 0, 0, 0, 0, 0],  # type 7
+            [0.048, 0.952, 0, 0, 0, 0, 0, 0, 0],  # type 8
+            [0.046, 0.954, 0, 0, 0, 0, 0, 0, 0],  # type 9
+        ]
+        self.basic_entropy = [0.52041, 0, 0.28669, 0, 0.38890, 0.47291, 0.11976, 0.0002, 0.08794, 0.08511]
+        self.basic_nums = [811504, 763518, 740117, 519806, 424531, 330956, 223092, 217737, 186891, 185932]
+
+        self.balance_dataset = [
+            [0.230, 0.230, 0.230, 0.230, 0.069, 0.0001, 0.0001, 0.0001, 0.0001],  # type 0
+            [0.230, 0.230, 0.230, 0.230, 0.069, 0.0001, 0.0001, 0.0001, 0.0001],  # type 1
+            [0.230, 0.230, 0.230, 0.230, 0.069, 0.0001, 0.0001, 0.0001, 0.0001],  # type 2
+            [0.230, 0.230, 0.230, 0.230, 0.069, 0.0001, 0.0001, 0.0001, 0.0001],  # type 3
+            [0.230, 0.230, 0.230, 0.230, 0.069, 0.0001, 0.0001, 0.0001, 0.0001],  # type 4
+            [0.230, 0.230, 0.230, 0.230, 0.069, 0.0001, 0.0001, 0.0001, 0.0001],  # type 5
+            [0.230, 0.230, 0.230, 0.230, 0.069, 0.0001, 0.0001, 0.0001, 0.0001],  # type 6
+            [0.230, 0.230, 0.230, 0.230, 0.069, 0.0001, 0.0001, 0.0001, 0.0001],  # type 7
+            [0.230, 0.230, 0.230, 0.230, 0.069, 0.0001, 0.0001, 0.0001, 0.0001],  # type 8
+            [0.230, 0.230, 0.230, 0.230, 0.069, 0.0001, 0.0001, 0.0001, 0.0001],  # type 9
+        ]
+        self.balance_entropy = [0.7611, 0.7611, 0.7611, 0.7611, 0.7611, 0.7611, 0.7611, 0.7611, 0.7611, 0.7611]
+        self.balance_nums = [43549, 43549, 43549, 43549, 43549, 43549, 43549, 43549, 43549, 43549]
+
+        self.mix_dataset = [
+            [0.206, 0.242, 0.242, 0.242, 0.065, 0, 0, 0, 0],  # type 0
+            [0.234, 0.234, 0.234, 0.026, 0.256, 0.0001, 0.0001, 0.0001, 0.0001],  # type 1
+            [0.038, 0.279, 0.279, 0.279, 0.125, 0, 0, 0, 0],  # type 2
+            [0.143, 0.272, 0.272, 0.272, 0.040, 0, 0, 0, 0],  # type 3
+        ]
+        self.mix_entropy = [0.69858, 0.70266, 0.66218, 0.66888]
+        self.mix_nums = [205946, 42679, 71748, 73446]
+
 
     def limit_gpu_memory(self):
         """ Limiting gpu memories
@@ -61,10 +93,8 @@ class ServerModule:
             for i, gpu_id in enumerate(self.gpu_ids):
                 gpu = self.gpus[gpu_id]
                 tf.config.experimental.set_memory_growth(gpu, True)
-                tf.config.experimental.set_virtual_device_configuration(gpu,
-                                                                        [
-                                                                            tf.config.experimental.VirtualDeviceConfiguration(
-                                                                                memory_limit=1024 * self.args.gpu_mem)])
+                tf.config.experimental.set_virtual_device_configuration(gpu, [
+                    tf.config.experimental.VirtualDeviceConfiguration(memory_limit=1024 * self.args.gpu_mem)])
 
     def run(self):
         self.logger.print('server', 'server process has been started')
@@ -128,15 +158,8 @@ class ServerModule:
         for curr_round in range(self.args.num_rounds * self.args.num_tasks):
             self.curr_round = curr_round
 
-            if(curr_round == 0):
-                self.train_global_model()
-                self._train_clients()
-
             #训练全局模型
             self.train_global_model()
-
-
-            self.connected_ids = np.random.choice(cids, num_connected, replace=False).tolist() # pick clients
             self.logger.print('server', f'training clients (round:{self.curr_round}, connected:{self.connected_ids})')
             self._train_clients()
 
@@ -147,8 +170,8 @@ class ServerModule:
         self.logger.print('server', 'server done. ({}s)'.format(time.time() - start_time))
         sys.exit()
 
-    def aggregate(self, updates):
-        return self.train.uniform_average(updates)
+    def aggregate(self, updates, sigma, nums, curr_round):
+        return self.train.uniform_average(updates, sigma, nums, curr_round)
 
 
     def train_global_model(self):
@@ -191,11 +214,12 @@ class ClientModule:
         self.net = NetModule(self.args)
         self.train = TrainModule(self.args, self.logger)
 
-    def train_one_round(self, client_id, curr_round, weights=None, sigma=None, psi=None):
+    def train_one_round(self, client_id, curr_round, weights=None, sigma=None, psi=None, slope=1):
         self.switch_state(client_id)
         if self.state['curr_task'] < 0:
             self.init_new_task()
         else:
+            self.state['curr_lr'] = self.state['curr_lr'] / slope
             self.is_last_task = (self.state['curr_task'] == self.args.num_tasks - 1)
             self.is_last_round = (self.state['round_cnt'] % self.args.num_rounds == 0 and self.state['round_cnt'] != 0)
             self.is_last = self.is_last_task and self.is_last_round
@@ -218,11 +242,8 @@ class ClientModule:
         #######################################
         self.save_state()
 
-
-
-
-        return (self.get_weights(), self.get_train_size(), self.state['client_id'],
-                self.train.get_c2s(), self.train.get_s2c())
+        return (self.get_client_train_weights(), self.get_train_size(), self.state['client_id'],
+                curr_round)
 
     def switch_state(self, client_id):
         if self.is_new(client_id):

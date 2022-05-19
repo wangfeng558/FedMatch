@@ -23,62 +23,94 @@ import types
 class DataGenerator:
 
     def __init__(self, args):
-        """ Data Generator
 
-        Generates batch-iid and batch-non-iid under both
-        labels-at-client and labels-at-server scenarios.
-
-        Created by:
-            Wonyong Jeong (wyjeong@kaist.ac.kr)
-        """
         self.data: Any = []
         self.targets = []
         self.args = args
         self.base_dir = os.path.join(self.args.dataset_path, self.args.task)
-        # 和cifar中 shape类似
-        self.shape = (77,)
+        self.shape = (77, 1)
         self.train_list = [
-            'data_party0',
-            'data_party1',
-            'data_party2',
-            'data_party3',
-            'data_party4',
-            'data_party5',
-            'data_party6',
-            'data_party7',
-            'data_party8',
-            'data_party9']
+            'data_party0.csv',
+            'data_party1.csv',
+            'data_party2.csv',
+            'data_party3.csv',
+            'data_party4.csv',
+            'data_party5.csv',
+            'data_party6.csv',
+            'data_party7.csv',
+            'data_party8.csv',
+            'data_party9.csv']
 
-        self.test_list = ['data_test']
+        self.test_list = ['test.csv']
+
+        self.server_list = ['server.csv']
+
 
     def generate_data(self):
         print('generating {} ...'.format(self.args.task))
         start_time = time.time()
         self.task_cnt = -1
-        # self.is_labels_at_server = True if 'server' in self.args.scenario else False
-        # self.is_imbalanced = True if 'imb' in self.args.task else False
-        # x, y = self.load_dataset(self.args.dataset_id)
 
-        x, y = self.TON_LOT()
-        self.generate_task(x, y)
+        self.TON_LOT()
+
         print(f'{self.args.task} done ({time.time() - start_time}s)')
+
+    #生成npy数据
 
     def TON_LOT(self, train: bool = True):
 
         if not self._check_integrity():
             raise RuntimeError('Dataset not found or corrupted.' +
                                ' You can use download=True to download it')
-        if train:
-            downloaded_list = self.train_list
-        else:
-            downloaded_list = self.test_list
-        for file_name, checksum in downloaded_list:
+
+        for file_name in self.train_list:
             file_path = os.path.join(self.args.dataset_path, file_name)
             x, y = [], []
             x = pd.read_csv(file_path)
             y = x['Label']
             del x['Label']
-            return x, y
+
+            y_train = tf.keras.utils.to_categorical(y, len(self.labels))
+            l_train = np.unique(y_train)
+            self.save_task({
+                # 506
+                'x': x,
+                'y': y_train,
+                'labels': l_train,
+                'name': f'u_{self.args.dataset_id_to_name[self.args.dataset_id]}'
+            })
+
+        for file_name in self.test_list:
+            file_path = os.path.join(self.args.dataset_path, file_name)
+            x, y = [], []
+            x = pd.read_csv(file_path)
+            y = x['Label']
+            del x['Label']
+
+            y_test = tf.keras.utils.to_categorical(y, len(self.labels))
+            l_test = np.unique(y_test)
+            self.save_task({
+                # 506
+                'x': x,
+                'y': y_test,
+                'labels': l_test,
+                'name': f'test_{self.args.dataset_id_to_name[self.args.dataset_id]}'
+            })
+        for file_name in self.server_list:
+            file_path = os.path.join(self.args.dataset_path, file_name)
+            x, y = [], []
+            x = pd.read_csv(file_path)
+            y = x['Label']
+            del x['Label']
+            y_server = tf.keras.utils.to_categorical(y, len(self.labels))
+            l_server = np.unique(y_server)
+            self.save_task({
+                # 506
+                'x': x,
+                'y': y_server,
+                'labels': l_server,
+                'name': f's_{self.args.dataset_id_to_name[self.args.dataset_id]}'
+            })
 
     def _check_integrity(self) -> bool:
         for fentry in (self.train_list + self.test_list):
@@ -87,21 +119,6 @@ class DataGenerator:
             if not os.path.isfile(fpath):
                 return False
         return True
-
-    #      def load_dataset(self, dataset_id):
-    #         temp = {}
-    #         if self.args.dataset_id_to_name[dataset_id] == 'cifar_10':
-    #             temp['train'] = datasets.CIFAR10(self.args.dataset_path, train=True, download=True)
-    #             temp['test'] = datasets.CIFAR10(self.args.dataset_path, train=False, download=True)
-    #             x, y = [], []
-    #             for dtype in ['train', 'test']:
-    #                 for image, target in temp[dtype]:
-    #                     x.append(np.array(image))
-    #                     y.append(target)
-    #
-    #         x, y = self.shuffle(x, y)
-    #         print(f'{self.args.dataset_id_to_name[self.args.dataset_id]} ({np.shape(x)}) loaded.')
-    #         return x, y
 
     def generate_task(self, x, y):
         x_train, y_train = self.split_train_test_valid(x, y)
