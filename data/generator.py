@@ -68,7 +68,7 @@ class DataGenerator:
             x = pd.read_csv(file_path)
             y = x['Label']
             del x['Label']
-            y = y.explode('Label')
+            y = y.explode()
             labels = np.unique(y)
             y_train = tf.keras.utils.to_categorical(y, len(labels))
             l_train = np.unique(y_train)
@@ -86,7 +86,7 @@ class DataGenerator:
             x = pd.read_csv(file_path)
             y = x['Label']
             del x['Label']
-            y = y.explode('Label')
+            y = y.explode()
             labels = np.unique(y)
             y_test = tf.keras.utils.to_categorical(y, len(labels))
             l_test = np.unique(y_test)
@@ -103,7 +103,7 @@ class DataGenerator:
             x = pd.read_csv(file_path)
             y = x['Label']
             del x['Label']
-            y = y.explode('Label')
+            y = y.explode()
             labels = np.unique(y)
             y_server = tf.keras.utils.to_categorical(y, len(labels))
             l_server = np.unique(y_server)
