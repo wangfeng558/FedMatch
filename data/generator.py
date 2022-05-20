@@ -24,7 +24,6 @@ class DataGenerator:
 
     def __init__(self, args):
 
-        self.labels = 0
         self.data: Any = []
         self.targets = []
         self.args = args
@@ -69,9 +68,9 @@ class DataGenerator:
             x = pd.read_csv(file_path)
             y = x['Label']
             del x['Label']
-            if i == 0:
-                self.labels = np.unique(y)
-            y_train = tf.keras.utils.to_categorical(y, len(self.labels))
+            y = y.explode('Label')
+            labels = np.unique(y)
+            y_train = tf.keras.utils.to_categorical(y, len(labels))
             l_train = np.unique(y_train)
             self.save_task({
                 # 506
@@ -87,8 +86,9 @@ class DataGenerator:
             x = pd.read_csv(file_path)
             y = x['Label']
             del x['Label']
-
-            y_test = tf.keras.utils.to_categorical(y, len(self.labels))
+            y = y.explode('Label')
+            labels = np.unique(y)
+            y_test = tf.keras.utils.to_categorical(y, len(labels))
             l_test = np.unique(y_test)
             self.save_task({
                 # 506
@@ -103,7 +103,9 @@ class DataGenerator:
             x = pd.read_csv(file_path)
             y = x['Label']
             del x['Label']
-            y_server = tf.keras.utils.to_categorical(y, len(self.labels))
+            y = y.explode('Label')
+            labels = np.unique(y)
+            y_server = tf.keras.utils.to_categorical(y, len(labels))
             l_server = np.unique(y_server)
             self.save_task({
                 # 506
