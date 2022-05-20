@@ -69,6 +69,7 @@ class DataGenerator:
             y = x['Label']
             del x['Label']
             y = y.explode()
+            print(y)
             labels = np.unique(y)
             y_train = tf.keras.utils.to_categorical(y, len(labels))
             l_train = np.unique(y_train)
